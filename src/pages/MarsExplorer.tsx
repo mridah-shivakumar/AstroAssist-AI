@@ -1,5 +1,9 @@
+import { useState, useEffect } from 'react'
 import Header from '../components/Header'
 import Card from '../components/Card'
+import { useSpaceData } from '../hooks/useSpaceData'
+import { fetchMarsPhotos } from '../services/nasaApi'
+import type { NasaImageItem } from '../types'
 
 const Icon = ({ d }: { d: string }) => (
   <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -7,7 +11,96 @@ const Icon = ({ d }: { d: string }) => (
   </svg>
 )
 
+// Instrument list is static mission knowledge — not in the manifest API
+const instruments = [
+  { name: 'MEDA Weather Station',          value: 'Nominal',  color: 'text-green-400' },
+  { name: 'SuperCam Rock Analysis',         value: 'Active',   color: 'text-space-blue-400' },
+  { name: 'PIXL X-Ray Spectrometer',        value: 'Standby',  color: 'text-slate-400' },
+  { name: 'RIMFAX Ground Penetrating Radar',value: 'Active',   color: 'text-space-blue-400' },
+  { name: 'Ingenuity Helicopter',           value: 'Grounded', color: 'text-amber-400' },
+]
+
 export default function MarsExplorer() {
+  const { roverStatus, isLoading: globalLoading, error: globalError } = useSpaceData()
+
+  // Photo browser state (NASA Image Library — search/page based)
+  const [query, setQuery] = useState<string>('perseverance mars')
+  const [queryInput, setQueryInput] = useState<string>('perseverance mars')
+  const [page, setPage] = useState<number>(1)
+  const [photos, setPhotos] = useState<NasaImageItem[]>([])
+  const [photosLoading, setPhotosLoading] = useState(false)
+  const [photosError, setPhotosError] = useState<string | null>(null)
+
+  // Fetch photos whenever query or page changes
+  useEffect(() => {
+    setPhotosLoading(true)
+    setPhotosError(null)
+    setPhotos([])
+
+    fetchMarsPhotos(page, query)
+      .then((items) => {
+        setPhotos(items)
+      })
+      .catch((err: unknown) => {
+        setPhotosError(err instanceof Error ? err.message : 'Failed to fetch photos')
+      })
+      .finally(() => setPhotosLoading(false))
+  }, [query, page])
+
+  const handleSearchSubmit = (e: React.FormEvent) => {
+    e.preventDefault()
+    const trimmed = queryInput.trim()
+    if (trimmed) {
+      setPage(1)
+      setQuery(trimmed)
+    }
+  }
+
+  // --- Global loading (manifest + asteroids) ---
+  if (globalLoading) {
+    return (
+      <div>
+        <Header
+          title="Mars Explorer"
+          subtitle="Surface data, rover telemetry, and atmospheric conditions"
+        />
+        <div className="flex items-center justify-center py-24 text-slate-400">
+          <svg className="animate-spin mr-3" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+            <path d="M21 12a9 9 0 1 1-6.219-8.56" />
+          </svg>
+          <span className="text-sm">Loading Perseverance rover data…</span>
+        </div>
+      </div>
+    )
+  }
+
+  // --- Global error ---
+  if (globalError) {
+    return (
+      <div>
+        <Header
+          title="Mars Explorer"
+          subtitle="Surface data, rover telemetry, and atmospheric conditions"
+        />
+        <div className="rounded-lg border border-red-800 bg-red-900/20 p-6 text-center">
+          <Icon d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0zM12 9v4M12 17h.01" />
+          <p className="mt-3 text-sm font-medium text-red-400">Failed to load rover data</p>
+          <p className="mt-1 text-xs text-slate-500">{globalError}</p>
+        </div>
+      </div>
+    )
+  }
+
+  const statusColor =
+    roverStatus?.status === 'online'  ? 'text-green-400'  :
+    roverStatus?.status === 'standby' ? 'text-amber-400'  :
+                                        'text-slate-400'
+
+  const statusLabel =
+    roverStatus?.status === 'online'  ? 'Online'  :
+    roverStatus?.status === 'standby' ? 'Standby' :
+                                        'Offline'
+
   return (
     <div>
       <Header
@@ -15,10 +108,15 @@ export default function MarsExplorer() {
         subtitle="Surface data, rover telemetry, and atmospheric conditions"
       />
 
+      {/* Status cards row */}
       <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4 mb-8">
         <Card title="Rover Status" icon={<Icon d="M9 17a2 2 0 1 1-4 0 2 2 0 0 1 4 0zM19 17a2 2 0 1 1-4 0 2 2 0 0 1 4 0zM13 6h5l3 5v4h-8V6zM3 6h5l3 5v4H3V6z" />}>
-          <span className="block text-xl font-bold text-green-400 mb-1">Online</span>
-          <span className="text-xs text-slate-500">Perseverance · Sol 1,234 · Jezero Crater</span>
+          <span className={`block text-xl font-bold mb-1 ${statusColor}`}>{statusLabel}</span>
+          <span className="text-xs text-slate-500">
+            {roverStatus
+              ? `${roverStatus.name} · Sol ${roverStatus.sol.toLocaleString()} · ${roverStatus.location}`
+              : '—'}
+          </span>
         </Card>
 
         <Card title="Surface Temperature" icon={<Icon d="M14 14.76V3.5a2.5 2.5 0 0 0-5 0v11.26a4.5 4.5 0 1 0 5 0z" />}>
@@ -27,8 +125,14 @@ export default function MarsExplorer() {
         </Card>
 
         <Card title="Sol Counter" icon={<Icon d="M12 2v20M2 12h20M4.93 4.93l14.14 14.14M19.07 4.93L4.93 19.07" />}>
-          <span className="block text-xl font-bold text-amber-400 mb-1">Sol 1,234</span>
-          <span className="text-xs text-slate-500">Earth date: 2025-08-01 · Mission day 1,234</span>
+          <span className="block text-xl font-bold text-amber-400 mb-1">
+            Sol {roverStatus ? roverStatus.sol.toLocaleString() : '—'}
+          </span>
+          <span className="text-xs text-slate-500">
+            {roverStatus
+              ? `Earth date: ${roverStatus.earthDate} · ${roverStatus.totalPhotos.toLocaleString()} total photos`
+              : '—'}
+          </span>
         </Card>
 
         <Card title="Atmospheric Data" icon={<Icon d="M17.5 19H9a7 7 0 1 1 6.71-9h1.79a4.5 4.5 0 1 1 0 9z" />}>
@@ -37,16 +141,11 @@ export default function MarsExplorer() {
         </Card>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+      {/* Instrument readings + sample progress */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-8">
         <Card title="Instrument Readings" icon={<Icon d="M22 12h-4l-3 9L9 3l-3 9H2" />}>
           <ul className="space-y-3">
-            {[
-              { name: 'MEDA Weather Station', value: 'Nominal', color: 'text-green-400' },
-              { name: 'SuperCam Rock Analysis', value: 'Active', color: 'text-space-blue-400' },
-              { name: 'PIXL X-Ray Spectrometer', value: 'Standby', color: 'text-slate-400' },
-              { name: 'RIMFAX Ground Penetrating Radar', value: 'Active', color: 'text-space-blue-400' },
-              { name: 'Ingenuity Helicopter', value: 'Grounded', color: 'text-amber-400' },
-            ].map((inst) => (
+            {instruments.map((inst) => (
               <li key={inst.name} className="flex items-center justify-between">
                 <span className="text-slate-300 text-xs">{inst.name}</span>
                 <span className={`text-xs font-medium ${inst.color}`}>{inst.value}</span>
@@ -60,19 +159,19 @@ export default function MarsExplorer() {
             {[
               { label: 'Core Samples Collected', current: 23, target: 38, color: 'bg-space-blue-600' },
               { label: 'Spectroscopy Targets', current: 187, target: 200, color: 'bg-space-purple-600' },
-              { label: 'Panoramic Images', current: 4120, target: 5000, color: 'bg-amber-600' },
+              { label: 'Panoramic Images', current: roverStatus ? Math.min(roverStatus.totalPhotos, 5000) : 4120, target: 5000, color: 'bg-amber-600' },
             ].map((item) => {
               const pct = Math.round((item.current / item.target) * 100)
               return (
                 <div key={item.label}>
                   <div className="flex justify-between text-xs mb-1">
                     <span className="text-slate-400">{item.label}</span>
-                    <span className="text-slate-300">{item.current} / {item.target}</span>
+                    <span className="text-slate-300">{item.current.toLocaleString()} / {item.target.toLocaleString()}</span>
                   </div>
                   <div className="h-1.5 bg-space-border rounded-full overflow-hidden">
                     <div
                       className={`h-full rounded-full ${item.color}`}
-                      style={{ width: `${pct}%` }}
+                      style={{ width: `${Math.min(pct, 100)}%` }}
                     />
                   </div>
                 </div>
@@ -81,6 +180,90 @@ export default function MarsExplorer() {
           </div>
         </Card>
       </div>
+
+      {/* Photo browser */}
+      <Card
+        title="Rover Photo Browser"
+        icon={<Icon d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2zM12 17a4 4 0 1 0 0-8 4 4 0 0 0 0 8z" />}
+      >
+        {/* Search bar */}
+        <form onSubmit={handleSearchSubmit} className="flex items-center gap-2 mb-4">
+          <input
+            type="text"
+            value={queryInput}
+            onChange={(e) => setQueryInput(e.target.value)}
+            placeholder="Search NASA image library…"
+            className="flex-1 bg-space-surface border border-space-border rounded px-2 py-1 text-xs text-slate-200 focus:outline-none focus:border-space-blue-500"
+          />
+          <button
+            type="submit"
+            className="px-3 py-1 rounded bg-space-blue-600 hover:bg-space-blue-500 text-xs text-white transition-colors"
+          >
+            Search
+          </button>
+        </form>
+
+        {/* Photo grid / states */}
+        {photosLoading && (
+          <div className="flex items-center justify-center py-12 text-slate-400">
+            <svg className="animate-spin mr-2" xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              <path d="M21 12a9 9 0 1 1-6.219-8.56" />
+            </svg>
+            <span className="text-xs">Searching NASA image library…</span>
+          </div>
+        )}
+
+        {!photosLoading && photosError && (
+          <div className="rounded border border-red-800 bg-red-900/20 p-4 text-center">
+            <p className="text-xs font-medium text-red-400">Photo fetch failed</p>
+            <p className="text-xs text-slate-500 mt-1">{photosError}</p>
+          </div>
+        )}
+
+        {!photosLoading && !photosError && photos.length === 0 && (
+          <div className="py-10 text-center text-slate-500 text-xs">
+            No images found for "{query}". Try a different search term.
+          </div>
+        )}
+
+        {!photosLoading && !photosError && photos.length > 0 && (
+          <>
+            <p className="text-xs text-slate-500 mb-3">
+              {photos.length} image{photos.length !== 1 ? 's' : ''} · page {page} · NASA Image Library
+            </p>
+            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-2">
+              {photos.map((item) => (
+                <a key={item.nasaId} href={item.detailHref} target="_blank" rel="noopener noreferrer" title={item.title}>
+                  <img
+                    src={item.thumbUrl}
+                    alt={item.title}
+                    className="w-full aspect-square object-cover rounded border border-space-border hover:border-space-blue-500 transition-colors"
+                    loading="lazy"
+                  />
+                </a>
+              ))}
+            </div>
+            {/* Pagination */}
+            <div className="flex items-center justify-center gap-3 mt-4">
+              <button
+                onClick={() => setPage((p) => Math.max(1, p - 1))}
+                disabled={page === 1}
+                className="px-3 py-1 rounded bg-space-surface border border-space-border text-xs text-slate-300 disabled:opacity-40 hover:border-space-blue-500 transition-colors"
+              >
+                ← Prev
+              </button>
+              <span className="text-xs text-slate-500">Page {page}</span>
+              <button
+                onClick={() => setPage((p) => p + 1)}
+                disabled={photos.length < 24}
+                className="px-3 py-1 rounded bg-space-surface border border-space-border text-xs text-slate-300 disabled:opacity-40 hover:border-space-blue-500 transition-colors"
+              >
+                Next →
+              </button>
+            </div>
+          </>
+        )}
+      </Card>
     </div>
   )
 }
