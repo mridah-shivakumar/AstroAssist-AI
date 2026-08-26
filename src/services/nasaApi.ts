@@ -209,13 +209,153 @@ export async function fetchMarsPhotos(
     })
 }
 
+// ---------------------------------------------------------------------------
+// Mission catalogue
+// ---------------------------------------------------------------------------
+//
+// NASA does not publish a single public REST endpoint that maps cleanly to the
+// Mission interface (id / name / status / launchDate / target / description).
+// HORIZONS provides ephemeris only; TechPort covers R&D grants; the Launch
+// Library is a third-party service.
+//
+// Approach: curated catalogue of real, publicly-known NASA missions combined
+// with a live NASA Image and Video Library thumbnail fetch for each entry.
+// The structured fields (name, status, launchDate, target, description) come
+// from verified public mission fact-sheets and are labelled as such in the UI.
+// The thumbnail is the only field that is fetched live from NASA's API.
+//
+// Source for mission facts: NASA.gov mission pages (public domain).
+
+interface MissionSeed {
+  id: string
+  name: string
+  status: Mission['status']
+  launchDate: string
+  target: string
+  description: string
+  /** Query sent to the NASA Image Library to retrieve a representative image */
+  imageQuery: string
+}
+
+const MISSION_SEEDS: MissionSeed[] = [
+  {
+    id: 'perseverance',
+    name: 'Mars 2020 Perseverance',
+    status: 'active',
+    launchDate: '2020-07-30',
+    target: 'Mars / Jezero Crater',
+    description:
+      'Perseverance searches for signs of ancient microbial life, characterises Martian geology and climate, and caches samples for future return to Earth. It also deployed the Ingenuity helicopter.',
+    imageQuery: 'perseverance rover mars 2020',
+  },
+  {
+    id: 'europa-clipper',
+    name: 'Europa Clipper',
+    status: 'active',
+    launchDate: '2024-10-14',
+    target: "Jupiter's moon Europa",
+    description:
+      'Europa Clipper will conduct ~50 close flybys of Europa to investigate whether the icy moon could harbour conditions suitable for life, characterising its subsurface ocean, ice shell, and surface.',
+    imageQuery: 'europa clipper spacecraft jupiter',
+  },
+  {
+    id: 'jwst',
+    name: 'James Webb Space Telescope',
+    status: 'active',
+    launchDate: '2021-12-25',
+    target: 'Sun-Earth L2 Halo Orbit',
+    description:
+      'JWST is the premier space-science observatory of the next decade. It observes in infrared from the Big Bang\'s first galaxies to exoplanet atmospheres, operating at L2 roughly 1.5 million km from Earth.',
+    imageQuery: 'james webb space telescope JWST',
+  },
+  {
+    id: 'osiris-apex',
+    name: 'OSIRIS-APEX',
+    status: 'active',
+    launchDate: '2016-09-08',
+    target: 'Asteroid Apophis',
+    description:
+      'Formerly OSIRIS-REx, this spacecraft delivered the first asteroid sample from Bennu to Earth in 2023. It was then redirected to rendezvous with asteroid Apophis during its rare 2029 close Earth approach.',
+    imageQuery: 'OSIRIS-REx asteroid Bennu sample',
+  },
+  {
+    id: 'artemis',
+    name: 'Artemis Programme',
+    status: 'planned',
+    launchDate: '2026-04-01',
+    target: 'Lunar South Pole',
+    description:
+      'NASA\'s Artemis programme aims to return humans to the Moon, land the first woman and first person of colour near the lunar South Pole, and establish a long-term presence as a stepping-stone to Mars.',
+    imageQuery: 'Artemis SLS moon lunar',
+  },
+  {
+    id: 'voyager-1',
+    name: 'Voyager 1',
+    status: 'active',
+    launchDate: '1977-09-05',
+    target: 'Interstellar Space',
+    description:
+      'Launched in 1977, Voyager 1 is humanity\'s most distant spacecraft, now travelling through interstellar space more than 23 billion km from Earth. It continues to return plasma-wave and particle data.',
+    imageQuery: 'Voyager 1 spacecraft interstellar',
+  },
+  {
+    id: 'mars-sample-return',
+    name: 'Mars Sample Return',
+    status: 'planned',
+    launchDate: '2030-01-01',
+    target: 'Mars (sample retrieval)',
+    description:
+      'A joint NASA-ESA campaign to retrieve the samples cached by Perseverance and return them to Earth for detailed laboratory analysis. The Earth Return Orbiter is being built by ESA; the Sample Retrieval Lander by NASA.',
+    imageQuery: 'mars sample return mission NASA ESA',
+  },
+  {
+    id: 'new-horizons',
+    name: 'New Horizons',
+    status: 'active',
+    launchDate: '2006-01-19',
+    target: 'Kuiper Belt',
+    description:
+      'New Horizons performed the first close flyby of Pluto in 2015, revealing mountains, plains and a tenuous atmosphere. It then flew past Kuiper Belt Object Arrokoth in 2019 and continues exploring the outer solar system.',
+    imageQuery: 'New Horizons Pluto Kuiper Belt',
+  },
+]
+
 /**
- * Fetch active and planned mission data.
- * Planned integration point: NASA HORIZONS or custom mission database.
+ * Returns curated NASA mission data, enriched with a live thumbnail from the
+ * NASA Image and Video Library API.
+ *
+ * The structured fields (name, status, launchDate, target, description) are
+ * sourced from NASA public mission fact-sheets and are static/curated — not
+ * fetched live — because no single NASA REST endpoint exposes them in this
+ * format. The thumbnail URL is the only value fetched live per call.
+ *
+ * If the image fetch for a mission fails the mission is still returned with an
+ * empty thumbUrl, so a single network failure never drops the whole list.
  */
 export async function fetchMissions(): Promise<Mission[]> {
-  // TODO: Integrate with NASA HORIZONS System or a custom missions endpoint
-  return Promise.resolve([])
+  const results = await Promise.allSettled(
+    MISSION_SEEDS.map(async (seed): Promise<Mission & { thumbUrl: string }> => {
+      const encoded = encodeURIComponent(seed.imageQuery)
+      const url = `https://images-api.nasa.gov/search?q=${encoded}&media_type=image&page_size=1`
+      let thumbUrl = ''
+      try {
+        const res = await fetch(url)
+        if (res.ok) {
+          const data: NasaImageLibraryResponse = await res.json()
+          const first = data.collection?.items?.[0]
+          const link = first?.links?.find((l) => l.rel === 'preview') ?? first?.links?.[0]
+          if (link) thumbUrl = link.href
+        }
+      } catch {
+        // Non-fatal: mission still returned without a thumbnail
+      }
+      return { ...seed, thumbUrl }
+    })
+  )
+
+  return results.flatMap((r) =>
+    r.status === 'fulfilled' ? [r.value] : []
+  )
 }
 
 /**

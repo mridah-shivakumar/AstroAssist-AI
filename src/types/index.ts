@@ -20,6 +20,11 @@ export interface Mission {
   launchDate: string
   target: string
   description: string
+  /**
+   * Optional thumbnail URL fetched live from the NASA Image and Video Library.
+   * Not present when the image fetch fails or has not yet been loaded.
+   */
+  thumbUrl?: string
 }
 
 export interface AsteroidObject {

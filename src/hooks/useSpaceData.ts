@@ -1,19 +1,22 @@
 import { useState, useEffect } from 'react'
 import { AsteroidObject, Mission, RoverStatus } from '../types'
-import { fetchAsteroids, fetchRoverStatus } from '../services/nasaApi'
+import { fetchAsteroids, fetchMissions, fetchRoverStatus } from '../services/nasaApi'
 
 interface SpaceData {
   missions: Mission[]
   asteroids: AsteroidObject[]
   roverStatus: RoverStatus | null
+  missionsLoading: boolean
   isLoading: boolean
   error: string | null
 }
 
 export function useSpaceData(): SpaceData {
   const [asteroids, setAsteroids] = useState<AsteroidObject[]>([])
+  const [missions, setMissions] = useState<Mission[]>([])
   const [roverStatus, setRoverStatus] = useState<RoverStatus | null>(null)
   const [isLoading, setIsLoading] = useState(true)
+  const [missionsLoading, setMissionsLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
@@ -24,6 +27,7 @@ export function useSpaceData(): SpaceData {
     const fmt = (d: Date) => d.toISOString().slice(0, 10)
 
     setIsLoading(true)
+    setMissionsLoading(true)
     setError(null)
 
     const asteroidsRequest = fetchAsteroids(fmt(start), fmt(end))
@@ -46,15 +50,36 @@ export function useSpaceData(): SpaceData {
         )
       })
 
+    const missionsRequest = fetchMissions()
+      .then((data) => {
+        setMissions(data)
+      })
+      .catch((err: unknown) => {
+        console.warn(
+          '[useSpaceData] fetchMissions failed:',
+          err instanceof Error ? err.message : err
+        )
+      })
+      .finally(() => {
+        setMissionsLoading(false)
+      })
+
+    // isLoading gates AsteroidMonitor and MarsExplorer — keep it scoped to
+    // those two requests so the mission fetches (8 image-library calls) do not
+    // delay the existing pages' loading spinners.
     Promise.all([asteroidsRequest, roverRequest]).finally(() => {
       setIsLoading(false)
     })
+
+    // missionsRequest manages its own missionsLoading flag independently.
+    void missionsRequest
   }, [])
 
   return {
-    missions: [],
+    missions,
     asteroids,
     roverStatus,
+    missionsLoading,
     isLoading,
     error,
   }

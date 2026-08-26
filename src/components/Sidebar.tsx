@@ -43,6 +43,16 @@ const navItems: NavItem[] = [
     ),
   },
   {
+    label: 'Mission Control',
+    path: '/missions',
+    icon: (
+      <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <path d="M12 2L8.5 8.5 2 9.27l4.5 4.5L5.32 20.5 12 17.02l6.68 3.48L17.5 13.97 22 9.27l-6.5-.77L12 2z" />
+        <circle cx="12" cy="12" r="1" fill="currentColor" />
+      </svg>
+    ),
+  },
+  {
     label: 'Mission Insights',
     path: '/insights',
     icon: (

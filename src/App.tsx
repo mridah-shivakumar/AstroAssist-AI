@@ -3,6 +3,7 @@ import Sidebar from './components/Sidebar'
 import Dashboard from './pages/Dashboard'
 import AsteroidMonitor from './pages/AsteroidMonitor'
 import MarsExplorer from './pages/MarsExplorer'
+import MissionControl from './pages/MissionControl'
 import MissionInsights from './pages/MissionInsights'
 
 export default function App() {
@@ -14,6 +15,7 @@ export default function App() {
           <Route path="/" element={<Dashboard />} />
           <Route path="/asteroids" element={<AsteroidMonitor />} />
           <Route path="/mars" element={<MarsExplorer />} />
+          <Route path="/missions" element={<MissionControl />} />
           <Route path="/insights" element={<MissionInsights />} />
         </Routes>
       </main>
