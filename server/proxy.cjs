@@ -21,13 +21,15 @@ const PORT = 3001;
 const HF_ROUTER = 'https://router.huggingface.co/v1/chat/completions';
 const MODEL = 'meta-llama/Llama-3.1-8B-Instruct';
 
-const SYSTEM_PROMPT = `You are a space mission analyst. Produce concise, factual asteroid risk briefings for space operations teams. Rules:
-- Use ONLY the data supplied in the user message.
-- Do NOT invent asteroid names, dates, distances, diameters, velocities, or orbital details.
-- Do NOT fabricate risk probabilities or impact scenarios.
+const SYSTEM_PROMPT = `You are a space mission analyst producing concise, factual reports for space operations teams. Rules:
+- Use ONLY the data supplied in the user message. Do not add facts not present in the supplied data.
+- Do NOT invent asteroid names, dates, distances, diameters, velocities, orbital details, mission objectives, launch dates, spacecraft capabilities, scientific results, sensor readings, temperatures, pressures, or atmospheric data.
+- Do NOT fabricate risk probabilities, impact scenarios, mission milestones, or any events not explicitly listed in the supplied data.
 - Distinguish "Potentially Hazardous Asteroid" (PHA — an orbit/size classification by NASA/JPL) from an actual imminent impact threat.
-- If the supplied data is insufficient to draw a conclusion, say so explicitly.
-- Be proportionate: do not catastrophise routine close approaches.`;
+- If the supplied data does not contain a fact, do not claim it. If data is insufficient, say so explicitly.
+- Be proportionate: do not catastrophise routine close approaches or speculate beyond the data.
+- Be concise, professional, and operational. Avoid generic filler such as "Space exploration is fascinating".
+- Respect the word limits stated in each prompt.`;
 
 app.post('/api/insight', async (req, res) => {
   const token = process.env.HF_TOKEN;
@@ -61,7 +63,7 @@ app.post('/api/insight', async (req, res) => {
           { role: 'system', content: SYSTEM_PROMPT },
           { role: 'user', content: prompt },
         ],
-        max_tokens: 220,
+        max_tokens: 300,
         temperature: 0.2,
       }),
     });

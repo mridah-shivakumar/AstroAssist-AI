@@ -6,7 +6,7 @@
   "scripts": {
     "dev": "vite",
     "proxy": "node --env-file=.env server/proxy.cjs",
-    "dev:full": "node --env-file=.env server/proxy.cjs & vite",
+    "dev:full": "start \"AstroAssist Proxy\" node --env-file=.env server/proxy.cjs && vite",
     "build": "tsc && vite build",
     "preview": "vite preview"
   },

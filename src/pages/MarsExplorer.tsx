@@ -21,7 +21,7 @@ const instruments = [
 ]
 
 export default function MarsExplorer() {
-  const { roverStatus, isLoading: globalLoading, error: globalError } = useSpaceData()
+  const { isLoading: globalLoading } = useSpaceData()
 
   // Photo browser state (NASA Image Library — search/page based)
   const [query, setQuery] = useState<string>('perseverance mars')
@@ -56,88 +56,57 @@ export default function MarsExplorer() {
     }
   }
 
-  // --- Global loading (manifest + asteroids) ---
+  // globalLoading gates asteroids; roverStatus can remain null (API is dead)
   if (globalLoading) {
     return (
       <div>
         <Header
           title="Mars Explorer"
-          subtitle="Surface data, rover telemetry, and atmospheric conditions"
+          subtitle="Surface data, rover imagery, and mission context"
         />
         <div className="flex items-center justify-center py-24 text-slate-400">
           <svg className="animate-spin mr-3" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
             <path d="M21 12a9 9 0 1 1-6.219-8.56" />
           </svg>
-          <span className="text-sm">Loading Perseverance rover data…</span>
+          <span className="text-sm">Loading Mars Explorer…</span>
         </div>
       </div>
     )
   }
-
-  // --- Global error ---
-  if (globalError) {
-    return (
-      <div>
-        <Header
-          title="Mars Explorer"
-          subtitle="Surface data, rover telemetry, and atmospheric conditions"
-        />
-        <div className="rounded-lg border border-red-800 bg-red-900/20 p-6 text-center">
-          <Icon d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0zM12 9v4M12 17h.01" />
-          <p className="mt-3 text-sm font-medium text-red-400">Failed to load rover data</p>
-          <p className="mt-1 text-xs text-slate-500">{globalError}</p>
-        </div>
-      </div>
-    )
-  }
-
-  const statusColor =
-    roverStatus?.status === 'online'  ? 'text-green-400'  :
-    roverStatus?.status === 'standby' ? 'text-amber-400'  :
-                                        'text-slate-400'
-
-  const statusLabel =
-    roverStatus?.status === 'online'  ? 'Online'  :
-    roverStatus?.status === 'standby' ? 'Standby' :
-                                        'Offline'
 
   return (
     <div>
       <Header
         title="Mars Explorer"
-        subtitle="Surface data, rover telemetry, and atmospheric conditions"
+        subtitle="Surface data, rover imagery, and mission context"
       />
 
       {/* Status cards row */}
       <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4 mb-8">
         <Card title="Rover Status" icon={<Icon d="M9 17a2 2 0 1 1-4 0 2 2 0 0 1 4 0zM19 17a2 2 0 1 1-4 0 2 2 0 0 1 4 0zM13 6h5l3 5v4h-8V6zM3 6h5l3 5v4H3V6z" />}>
-          <span className={`block text-xl font-bold mb-1 ${statusColor}`}>{statusLabel}</span>
+          <span className="block text-xl font-bold text-green-400 mb-1">Active</span>
           <span className="text-xs text-slate-500">
-            {roverStatus
-              ? `${roverStatus.name} · Sol ${roverStatus.sol.toLocaleString()} · ${roverStatus.location}`
-              : '—'}
+            Perseverance · Jezero Crater · Operational since Feb 2021
           </span>
         </Card>
 
         <Card title="Surface Temperature" icon={<Icon d="M14 14.76V3.5a2.5 2.5 0 0 0-5 0v11.26a4.5 4.5 0 1 0 5 0z" />}>
-          <span className="block text-xl font-bold text-orange-400 mb-1">−23°C</span>
-          <span className="text-xs text-slate-500">High · Low: −83°C · Diurnal range 60°C</span>
+          <span className="block text-xl font-bold text-orange-400 mb-1">~−23°C</span>
+          <span className="text-xs text-slate-500">Typical daytime high · Low approx −83°C · Static reference value</span>
         </Card>
 
-        <Card title="Sol Counter" icon={<Icon d="M12 2v20M2 12h20M4.93 4.93l14.14 14.14M19.07 4.93L4.93 19.07" />}>
+        <Card title="Mission Sol" icon={<Icon d="M12 2v20M2 12h20M4.93 4.93l14.14 14.14M19.07 4.93L4.93 19.07" />}>
           <span className="block text-xl font-bold text-amber-400 mb-1">
-            Sol {roverStatus ? roverStatus.sol.toLocaleString() : '—'}
+            Sol 1500+
           </span>
           <span className="text-xs text-slate-500">
-            {roverStatus
-              ? `Earth date: ${roverStatus.earthDate} · ${roverStatus.totalPhotos.toLocaleString()} total photos`
-              : '—'}
+            Perseverance · Live sol count unavailable (manifest API retired)
           </span>
         </Card>
 
-        <Card title="Atmospheric Data" icon={<Icon d="M17.5 19H9a7 7 0 1 1 6.71-9h1.79a4.5 4.5 0 1 1 0 9z" />}>
-          <span className="block text-xl font-bold text-space-blue-400 mb-1">7.1 hPa</span>
-          <span className="text-xs text-slate-500">Surface pressure · CO₂ 95.3% · Dust low</span>
+        <Card title="Atmospheric Pressure" icon={<Icon d="M17.5 19H9a7 7 0 1 1 6.71-9h1.79a4.5 4.5 0 1 1 0 9z" />}>
+          <span className="block text-xl font-bold text-space-blue-400 mb-1">~7.1 hPa</span>
+          <span className="text-xs text-slate-500">Typical surface pressure · CO₂ ~95.3% · Static reference value</span>
         </Card>
       </div>
 
@@ -155,11 +124,12 @@ export default function MarsExplorer() {
         </Card>
 
         <Card title="Sample Collection Progress" icon={<Icon d="M9 3H5a2 2 0 0 0-2 2v4m6-6h10a2 2 0 0 1 2 2v4M9 3v18m0 0h10a2 2 0 0 0 2-2V9M9 21H5a2 2 0 0 1-2-2V9m0 0h18" />}>
+          <p className="text-xs text-slate-500 mb-3">Static reference values — live manifest API is unavailable</p>
           <div className="space-y-4">
             {[
               { label: 'Core Samples Collected', current: 23, target: 38, color: 'bg-space-blue-600' },
               { label: 'Spectroscopy Targets', current: 187, target: 200, color: 'bg-space-purple-600' },
-              { label: 'Panoramic Images', current: roverStatus ? Math.min(roverStatus.totalPhotos, 5000) : 4120, target: 5000, color: 'bg-amber-600' },
+              { label: 'Panoramic Images', current: 4120, target: 5000, color: 'bg-amber-600' },
             ].map((item) => {
               const pct = Math.round((item.current / item.target) * 100)
               return (
@@ -237,9 +207,22 @@ export default function MarsExplorer() {
                   <img
                     src={item.thumbUrl}
                     alt={item.title}
-                    className="w-full aspect-square object-cover rounded border border-space-border hover:border-space-blue-500 transition-colors"
+                    className="w-full aspect-square object-cover rounded border border-space-border hover:border-space-blue-500 transition-colors bg-space-surface"
                     loading="lazy"
+                    onError={(e) => {
+                      const img = e.currentTarget
+                      img.style.display = 'none'
+                      const placeholder = img.nextElementSibling as HTMLElement | null
+                      if (placeholder) placeholder.style.display = 'flex'
+                    }}
                   />
+                  <div
+                    className="w-full aspect-square rounded border border-space-border bg-space-surface items-center justify-center text-slate-600 text-xs"
+                    style={{ display: 'none' }}
+                    aria-label={item.title}
+                  >
+                    <span className="px-2 text-center">{item.title || 'Image unavailable'}</span>
+                  </div>
                 </a>
               ))}
             </div>

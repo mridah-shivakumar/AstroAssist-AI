@@ -1,10 +1,11 @@
 import { useState } from 'react'
+import type { ReactElement } from 'react'
 import { NavLink } from 'react-router-dom'
 
 interface NavItem {
   label: string
   path: string
-  icon: JSX.Element
+  icon: ReactElement
 }
 
 const navItems: NavItem[] = [

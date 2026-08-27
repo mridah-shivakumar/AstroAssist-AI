@@ -98,37 +98,12 @@ export async function fetchAsteroids(
 ): Promise<AsteroidObject[]> {
   const apiKey = import.meta.env.VITE_NASA_API_KEY as string
 
-  // --- DIAGNOSTIC (temporary) ---
-  console.group('[fetchAsteroids] diagnostics')
-  console.log('startDate arg:', startDate)
-  console.log('endDate arg:', endDate)
-  console.log('API key type:', typeof apiKey)
-  console.log('API key length:', apiKey ? apiKey.length : 'undefined/null')
-  console.log('API key truthy:', !!apiKey)
-  // Print URL with key masked — safe to log
-  const maskedUrl =
-    `https://api.nasa.gov/neo/rest/v1/feed` +
-    `?start_date=${startDate}&end_date=${endDate}&api_key=${apiKey ? '***MASKED***' : '(empty)'}`
-  console.log('Request URL (masked):', maskedUrl)
-  console.groupEnd()
-  // --- END DIAGNOSTIC ---
-
   const url =
     `https://api.nasa.gov/neo/rest/v1/feed` +
     `?start_date=${startDate}&end_date=${endDate}&api_key=${apiKey}`
 
   const response = await fetch(url)
   if (!response.ok) {
-    // --- DIAGNOSTIC (temporary) ---
-    let body = '(could not read body)'
-    try { body = await response.clone().text() } catch { /* ignore */ }
-    console.group('[fetchAsteroids] non-OK response')
-    console.log('HTTP status:', response.status)
-    console.log('HTTP statusText:', response.statusText)
-    console.log('Response URL:', response.url.replace(/api_key=[^&]+/, 'api_key=***MASKED***'))
-    console.log('Response body (first 500 chars):', body.slice(0, 500))
-    console.groupEnd()
-    // --- END DIAGNOSTIC ---
     throw new Error(
       `NeoWs API request failed: ${response.status} ${response.statusText}`
     )
@@ -370,14 +345,14 @@ export async function fetchRoverStatus(): Promise<RoverStatus | null> {
 }
 
 // ---------------------------------------------------------------------------
-// AI Insight — Asteroid Risk Briefing
+// AI Insight helpers
 // ---------------------------------------------------------------------------
 // The browser calls /api/insight (Vite dev proxy → server/proxy.cjs).
 // The proxy holds HF_TOKEN server-side; it never reaches the browser bundle.
 // ---------------------------------------------------------------------------
 
 /**
- * Deterministically builds the user-facing prompt from live asteroid data.
+ * Deterministically builds the asteroid risk briefing prompt from live NeoWs data.
  * The model is explicitly instructed to use only this supplied data.
  */
 export function buildAsteroidPrompt(asteroids: AsteroidObject[]): string {
@@ -408,7 +383,7 @@ export function buildAsteroidPrompt(asteroids: AsteroidObject[]): string {
       ? 'No Potentially Hazardous Asteroids (PHAs) in this window.'
       : `Potentially Hazardous Asteroids (PHAs) in this window (${hazardous.length} total):\n` +
         hazardous
-          .slice(0, 5) // cap to 5 to keep prompt concise
+          .slice(0, 5)
           .map(
             (a, i) =>
               `${i + 1}. ${a.name} — Miss: ${fmt(a.missDistance, 0)} km — ` +
@@ -426,12 +401,124 @@ ${closestBlock}
 
 ${hazardBlock}
 
-Write a 3–4 sentence natural-language risk briefing for a space operations team. Be factual and proportionate. Do not exceed 130 words. Use only the data above — do not add information not present here.`
+Write a 3–4 sentence natural-language risk briefing for a space operations team. Be factual and proportionate. Do not exceed 130 words. Use ONLY the data above — do not invent facts, measurements, dates, events, mission details, or scientific observations not present here.`
 }
 
 /**
- * Sends the prompt to the server-side proxy (/api/insight) and returns the
- * AI-generated briefing text. The proxy forwards to Hugging Face; the browser
+ * Deterministically builds a mission intelligence summary prompt from the
+ * curated mission catalogue. The model reasons only over the supplied data.
+ */
+export function buildMissionPrompt(missions: Mission[]): string {
+  if (missions.length === 0) {
+    return 'No mission data is available. Report that the mission catalogue could not be loaded.'
+  }
+
+  const active    = missions.filter((m) => m.status === 'active')
+  const planned   = missions.filter((m) => m.status === 'planned')
+  const completed = missions.filter((m) => m.status === 'completed')
+  const standby   = missions.filter((m) => m.status === 'standby')
+
+  const missionList = missions
+    .map(
+      (m) =>
+        `- ${m.name} | Status: ${m.status} | Target: ${m.target} | Launch: ${m.launchDate} | ${m.description}`
+    )
+    .join('\n')
+
+  return `Mission intelligence data (source: AstroAssist curated catalogue + NASA mission fact-sheets):
+
+Total missions in catalogue: ${missions.length}
+Active: ${active.length} | Planned: ${planned.length} | Completed: ${completed.length} | Standby: ${standby.length}
+
+Mission list:
+${missionList}
+
+Write a concise 4–5 sentence operational summary for a space operations team covering: mission distribution by status, notable targets, and any operationally significant context apparent from this data. Do NOT exceed 160 words. Use ONLY the data above — do not invent facts, measurements, dates, events, mission details, or scientific observations not present here.`
+}
+
+/**
+ * Builds a Mars conditions report prompt using NASA Image Library metadata.
+ * Since live rover telemetry is unavailable, the prompt clearly states this
+ * and asks the model to analyse the available imagery catalogue data.
+ */
+export function buildMarsPrompt(images: NasaImageItem[]): string {
+  const imageCount = images.length
+
+  if (imageCount === 0) {
+    return `Mars imagery catalogue query returned no results. Report that NASA Image Library returned no Mars imagery for this query and explain the limitation clearly. Do NOT invent Mars surface conditions, temperatures, pressures, or any scientific data.`
+  }
+
+  // Build a concise summary of available image metadata
+  const imageSummary = images
+    .slice(0, 12)
+    .map((img, i) => {
+      const date = img.dateCreated ? img.dateCreated.slice(0, 10) : 'unknown date'
+      const title = img.title || 'Untitled'
+      const desc = img.description ? img.description.slice(0, 120) : ''
+      return `${i + 1}. "${title}" (${date})${desc ? ` — ${desc}` : ''}`
+    })
+    .join('\n')
+
+  return `Mars imagery and catalogue data (source: NASA Image and Video Library — live query):
+
+NOTE TO MODEL: This data comes from the NASA Image and Video Library search API, NOT from live rover telemetry. No real-time temperature, pressure, wind, or rover sensor readings are available. Do NOT fabricate sensor measurements, atmospheric readings, or surface conditions.
+
+Images retrieved in this query: ${imageCount}
+
+Sample image metadata (first ${Math.min(imageCount, 12)} of ${imageCount}):
+${imageSummary}
+
+Write a 4–5 sentence Mars conditions report for a space operations team. Analyse the imagery catalogue data above — note dates, subjects, mission context visible in the titles and descriptions. Explicitly state that live telemetry is not available and that this report is based on imagery catalogue metadata only. Do NOT exceed 160 words. Use ONLY the data above — do not invent facts, measurements, dates, events, mission details, or scientific observations not present here.`
+}
+
+/**
+ * Builds an upcoming space events prompt using real asteroid close-approach data
+ * from NeoWs. Events are deterministically extracted; AI summarises and prioritises.
+ */
+export function buildSpaceEventsPrompt(asteroids: AsteroidObject[]): string {
+  if (asteroids.length === 0) {
+    return 'No near-Earth object data is available. Report that upcoming close-approach events cannot be determined because the NASA NeoWs data could not be loaded.'
+  }
+
+  const fmt = (n: number, decimals = 2): string =>
+    n.toLocaleString('en-US', { maximumFractionDigits: decimals })
+
+  // Sort by date, then by miss distance
+  const sorted = [...asteroids].sort((a, b) => {
+    const dateDiff = a.closeApproachDate.localeCompare(b.closeApproachDate)
+    if (dateDiff !== 0) return dateDiff
+    return a.missDistance - b.missDistance
+  })
+
+  const hazardous = sorted.filter((a) => a.isPotentiallyHazardous)
+  const closest5 = sorted.slice(0, 5)
+
+  const eventLines = sorted
+    .slice(0, 10)
+    .map(
+      (a, i) =>
+        `${i + 1}. ${a.name} | Date: ${a.closeApproachDate} | Miss distance: ${fmt(a.missDistance, 0)} km ` +
+        `(${fmt(a.missDistance / 384_400, 2)} LD) | Velocity: ${fmt(a.relativeVelocity, 2)} km/s | ` +
+        `Diameter: ${fmt(a.diameter.min, 3)}–${fmt(a.diameter.max, 3)} km | ` +
+        `PHA: ${a.isPotentiallyHazardous ? 'Yes' : 'No'}`
+    )
+    .join('\n')
+
+  return `Upcoming close-approach events (source: NASA NeoWs — current 7-day window):
+
+Total close-approach events: ${asteroids.length}
+Potentially Hazardous Asteroids (PHAs): ${hazardous.length}
+Closest approach: ${closest5[0]?.name ?? 'N/A'} at ${fmt(closest5[0]?.missDistance ?? 0, 0)} km on ${closest5[0]?.closeApproachDate ?? 'N/A'}
+
+Event list (up to 10, sorted by date then distance):
+${eventLines}
+
+Write a 4–5 sentence briefing for a space operations team that prioritises and summarises these upcoming close-approach events. Identify any PHAs and explain their significance. Note that all events are within the current 7-day NeoWs tracking window. Do NOT exceed 160 words. Use ONLY the data above — do not invent facts, measurements, dates, events, mission details, or scientific observations not present here.`
+}
+
+/**
+ * Sends a prompt to the server-side proxy (/api/insight) and returns the
+ * AI-generated text. The proxy forwards to Hugging Face; the browser
  * never touches HF_TOKEN.
  */
 export async function generateInsight(prompt: string): Promise<string> {
