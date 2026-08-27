@@ -368,3 +368,89 @@ export async function fetchMissions(): Promise<Mission[]> {
 export async function fetchRoverStatus(): Promise<RoverStatus | null> {
   return null
 }
+
+// ---------------------------------------------------------------------------
+// AI Insight — Asteroid Risk Briefing
+// ---------------------------------------------------------------------------
+// The browser calls /api/insight (Vite dev proxy → server/proxy.cjs).
+// The proxy holds HF_TOKEN server-side; it never reaches the browser bundle.
+// ---------------------------------------------------------------------------
+
+/**
+ * Deterministically builds the user-facing prompt from live asteroid data.
+ * The model is explicitly instructed to use only this supplied data.
+ */
+export function buildAsteroidPrompt(asteroids: AsteroidObject[]): string {
+  if (asteroids.length === 0) {
+    return 'No near-Earth object data is available for this window. Report that the data could not be loaded.'
+  }
+
+  const total = asteroids.length
+  const hazardous = asteroids.filter((a) => a.isPotentiallyHazardous)
+
+  // Sort by miss distance ascending (closest first)
+  const sorted = [...asteroids].sort((a, b) => a.missDistance - b.missDistance)
+  const closest = sorted[0]
+
+  const fmt = (n: number, decimals = 2): string =>
+    n.toLocaleString('en-US', { maximumFractionDigits: decimals })
+
+  const closestBlock = `Closest approach this window:
+- Name: ${closest.name}
+- Date: ${closest.closeApproachDate}
+- Miss distance: ${fmt(closest.missDistance, 0)} km (${fmt(closest.missDistance / 384_400, 2)} lunar distances)
+- Estimated diameter: ${fmt(closest.diameter.min, 3)}–${fmt(closest.diameter.max, 3)} km
+- Relative velocity: ${fmt(closest.relativeVelocity, 2)} km/s
+- Potentially Hazardous: ${closest.isPotentiallyHazardous ? 'Yes' : 'No'}`
+
+  const hazardBlock =
+    hazardous.length === 0
+      ? 'No Potentially Hazardous Asteroids (PHAs) in this window.'
+      : `Potentially Hazardous Asteroids (PHAs) in this window (${hazardous.length} total):\n` +
+        hazardous
+          .slice(0, 5) // cap to 5 to keep prompt concise
+          .map(
+            (a, i) =>
+              `${i + 1}. ${a.name} — Miss: ${fmt(a.missDistance, 0)} km — ` +
+              `Diameter: ${fmt(a.diameter.min, 3)}–${fmt(a.diameter.max, 3)} km — ` +
+              `Velocity: ${fmt(a.relativeVelocity, 2)} km/s — Date: ${a.closeApproachDate}`
+          )
+          .join('\n')
+
+  return `Asteroid close-approach data for the current 7-day window (source: NASA NeoWs):
+
+Total near-Earth objects tracked: ${total}
+Potentially Hazardous Asteroids (PHAs): ${hazardous.length}
+
+${closestBlock}
+
+${hazardBlock}
+
+Write a 3–4 sentence natural-language risk briefing for a space operations team. Be factual and proportionate. Do not exceed 130 words. Use only the data above — do not add information not present here.`
+}
+
+/**
+ * Sends the prompt to the server-side proxy (/api/insight) and returns the
+ * AI-generated briefing text. The proxy forwards to Hugging Face; the browser
+ * never touches HF_TOKEN.
+ */
+export async function generateInsight(prompt: string): Promise<string> {
+  const res = await fetch('/api/insight', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ prompt }),
+  })
+
+  if (!res.ok) {
+    let message = `Insight proxy returned ${res.status}`
+    try {
+      const body = await res.json() as { error?: string }
+      if (body.error) message = body.error
+    } catch { /* ignore parse errors */ }
+    throw new Error(message)
+  }
+
+  const data = await res.json() as { content?: string }
+  if (!data.content) throw new Error('Empty response from insight service.')
+  return data.content
+}

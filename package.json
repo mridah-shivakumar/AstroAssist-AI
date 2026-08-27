@@ -5,6 +5,8 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
+    "proxy": "node --env-file=.env server/proxy.cjs",
+    "dev:full": "node --env-file=.env server/proxy.cjs & vite",
     "build": "tsc && vite build",
     "preview": "vite preview"
   },
@@ -18,6 +20,7 @@
     "@types/react-dom": "^18.3.0",
     "@vitejs/plugin-react": "^4.3.1",
     "autoprefixer": "^10.4.20",
+    "express": "^5.2.1",
     "postcss": "^8.4.41",
     "tailwindcss": "^3.4.10",
     "typescript": "^5.5.4",
