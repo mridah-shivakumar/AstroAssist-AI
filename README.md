@@ -955,29 +955,7 @@ This demonstrates how AI can serve as an intelligence layer on top of existing s
 ---
 
 # 🎥 Demo Video
-
-### Public Demo
-
-> **Add your publicly accessible demo video link here**
-
-```text
-[Watch the AstroAssist AI Demo](YOUR_YOUTUBE_LINK_HERE)
-```
-
-The demo should demonstrate:
-
-1. Dashboard
-2. Asteroid Monitor
-3. Mars Explorer
-4. Mission Control
-5. Mission Insights
-6. Live AI briefing generation
-7. AI response based on NASA data
-8. Secure AI proxy architecture
-
----
-
-
+[Watch the AstroAssist AI Demo](https://youtu.be/kb_fEdfkTZA)
 
 # 🏆 Challenge Fit
 
