@@ -955,8 +955,9 @@ This demonstrates how AI can serve as an intelligence layer on top of existing s
 ---
 
 # 🎥 Demo Video
-[Watch the AstroAssist AI Demo](https://youtu.be/kb_fEdfkTZA)
+**▶️ [Watch the full 3-minute AstroAssist AI demo on YouTube](https://youtu.be/kb_fEdfkTZA)**
 
+The demo showcases the complete AstroAssist AI platform, including live NASA data integration, asteroid monitoring, Mars exploration, Mission Control, and AI-powered Mission Insights.
 # 🏆 Challenge Fit
 
 AstroAssist AI aligns with the IBM August Challenge in multiple areas.
