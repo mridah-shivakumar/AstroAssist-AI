@@ -142,7 +142,7 @@ The dashboard intentionally avoids fabricated operational statistics.
 Where data is curated rather than live, the interface clearly communicates that distinction.
 
 
-![AstroAssist AI Dashboard](screenshots\01-dashboard.png)
+![AstroAssist AI Dashboard](AstroAssist-AI\screenshots\01-dashboard.png)
 
 
 ---
