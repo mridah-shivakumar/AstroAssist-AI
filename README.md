@@ -145,8 +145,6 @@ Where data is curated rather than live, the interface clearly communicates that 
 ![AstroAssist AI Dashboard](AstroAssist-AI\screenshots\01-dashboard.png)
 
 
----
-
 # ☄️ 2. Asteroid Monitor
 
 The Asteroid Monitor uses NASA's **Near Earth Object Web Service (NeoWs)** to retrieve live asteroid data.
@@ -175,13 +173,7 @@ Asteroid Monitor
     ↓
 Mission Insights AI
 ```
-
-### 📸 Screenshot
-
-
-![Asteroid Monitor](D:\Astroassist_AI\AstroAssist-AI\screenshots\02-asteroid-monitor.png)
-
-
+![Asteroid Monitor](AstroAssist-AI\screenshots\02-asteroid-monitor.png)
 
 
 # 🔴 3. Mars Explorer
@@ -210,7 +202,7 @@ This is an intentional design decision to maintain data integrity.
 
 ### 📸 Screenshot
 
-![Mars Explorer](D:\Astroassist_AI\AstroAssist-AI\screenshots\03-mars-explorer.png)
+![Mars Explorer](AstroAssist-AI\screenshots\03-mars-explorer.png)
 
 # 🚀 4. Mission Control
 
@@ -245,7 +237,7 @@ The interface explicitly communicates this distinction rather than presenting cu
 ### 📸 Screenshot
 
 
-![Mission Control](D:\Astroassist_AI\AstroAssist-AI\screenshots\04-mission-control.png)
+![Mission Control](AstroAssist-AI\screenshots\04-mission-control.png)
 
 
 # 🤖 5. Mission Insights
@@ -307,13 +299,7 @@ The application first displays the relevant events and then allows the AI to sum
 
 This module currently focuses on asteroid close approaches rather than claiming to provide a complete launch/eclipses/orbital-events calendar.
 
-
-### 📸 Screenshot
-
-
-![Mission Insights](D:\Astroassist_AI\AstroAssist-AI\screenshots\05-mission-insights.png)
-
-
+![Mission Insights](AstroAssist-AI\screenshots\05-mission-insights.png)
 
 # 🧠 AI Architecture
 
